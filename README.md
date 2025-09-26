@@ -1,100 +1,104 @@
-# 論文投稿 Slack BOT
+# arXiv→Discord リサーチ BOT
 
-arXiv から特定のキーワード、特定の著者の論文を検索し、それを Slack に投稿する BOT です。1 時間に一回、特定の Slack チャンネルに論文の情報を分かりやすく投稿してくれます。
+指定したキーワードや著者の arXiv 論文を定期的に取得し、Google AI Studio の **Gemini 2.0 Flash** で日本語要約と読みどころを生成して Discord に投稿する BOT です。Render 上で常時稼働することを想定しています。
 
-特徴としては、以下二つがあります。
+## 主な機能
 
-## 論文を読む入り口の体験の向上
+- **Discord 投稿**: Webhook を利用して指定チャンネルに論文情報を送信。
+- **Gemini 要約**: Gemini 2.0 Flash で論文要約と「面白いポイント」を生成。
+- **レート制御**: 1 分あたり 15 リクエスト / 100 万トークン、1 日 200 リクエストの制限をソフト的に監視。
+- **重複投稿防止**: SQLite に投稿済み論文 ID を保存し、二重投稿を排除。
+- **FastAPI + APScheduler**: 3 時間ごとにジョブを実行しつつ、Render でのヘルスチェック用エンドポイントも提供。
 
-自分みたいな研究者でない人でも読みやすいように論文の abstract をもとにした要約や、なぜその論文は魅力的なのかをわかりやすく解説してもらうことで、論文を読んでみようかな思えるようにしています。
+## アーキテクチャ概要
 
-これだけでは論文の内容を把握することは難しいですが、ざっくりどのようなテーマなのかを把握したり、読もうかなと興味を持てるようにするということに焦点を当てています。
+| コンポーネント | 役割 |
+| --- | --- |
+| `main.py` | FastAPI アプリ、Discord 投稿処理、スケジューラ制御 |
+| `utils/utilts.py` | arXiv 取得・Gemini 要約生成・レートリミット管理 |
+| `database/database.py` | SQLite による投稿済み論文管理 |
+| `config.py` | 環境変数の読み込み、Gemini レート制限設定 |
+| `render.yaml` | Render 用 Blueprint（web サービス） |
 
-<img src="./static/bot_1.png" style="width:80%">
+## セットアップ
 
-<img src="./static/bot_2.png" style="width:80%">
+### 1. 事前に用意するもの
 
-## 論文を読む体験の向上
+- Python 3.11 以上
+- Discord Webhook URL（サーバー → チャンネル → 連携サービス → Webhook）
+- Google AI Studio API キー（Gemini 2.0 Flash を有効化）
+- Render アカウント（常時稼働する場合）
 
-いきなり英語の論文を読むのは難しいですよね。ということで私は以下二つのアプローチをとっています。
+### 2. リポジトリの準備
 
-### 1. ChatPDF を使った対話形式で疑問を解消していく
-
-[ChatPDF](https://www.chatpdf.com/) は論文の PDF を読み込ませると、その論文内容に基づいて会話ができるサービスです。
-
-論文に書いてないことは、書いてないとある程度明記した上で解答をしてくれるので、比較的 hallucination のリスクは低いのかなと思っています（完全ではないと思いますが）。
-
-この対話形式で論文の内容を把握していくと、この論文の起点となった課題感や新規性、今後の課題、手法の詳細についてなどを一通り質問しておくとざっくり内容が理解できます。また論文の内容を受けた自分の解釈が合っているかのすり合わせができたり、専門用語を噛み砕いて教えてもらったりできるので有用です。
-
-Slack 投稿の下部に ChatPDF の URL と、論文 PDF の URL を載せています。この論文 PDF の URL をコピーして、ChatPDF の Find a URL に貼り付けるとすぐ会話ができるような体験となっています。
-
-![output](https://user-images.githubusercontent.com/100386872/233752104-d2433b95-db50-46c4-99ee-58ce73a47303.gif)
-
-### 2. Readable を使って PDF 翻訳をして読む
-
-ステップ 1 が完了した頃には、論文の全体像や詳細なども少し掴めてきているはずです。このタイミングで [Readble の Chrome 拡張機能](https://chrome.google.com/webstore/detail/readable/pmhcplemclcflofgnjfhoilpkclnjnfh?hl=ja)を使って PDF を翻訳し、実際の原文を読み進めていきます。この [Readble](https://readable.jp/) は PDF のフォーマットを保った状態で翻訳してくれる神ツールです。使わない手はありません。
-
-![output](https://user-images.githubusercontent.com/100386872/233751901-630cf40b-c9be-4f44-9fb8-33d5ffa74c9b.gif)
-
-## 使い方
-
-### 事前準備
-
-事前準備として、以下を対応している必要があります。ここでは触れずに参考記事のみの紹介とさせていただきます。
-
-- slackbot と slack channel の作成（最終的に `SLACK BOT TOKEN`, `SLACK CHANNEL ID` が取得できれば OK）
-- Railway のアカウント発行、プロジェクト作成、Railway CLI のインストール
-
-slackbot の作成については[こちら](https://www.pci-sol.com/business/service/product/blog/lets-make-slack-app/)がわかりやすいです（手順 1~17 までをなぞって下さい）。また Railway のアカウント発行とプロジェクト作成については[こちら](https://docs.railway.app/develop/cli)をご参考ください。
-
-### インストール
-
-以下の環境で実行しています。
-
-- pip 23.0.1
-- Python 3.10.6
-- railwayapp 3.0.21
-
-railwayCLI のインストール方法については[こちら](https://docs.railway.app/develop/cli)をご参考ください。
-
-以下のコマンドを実行して必要なパッケージをインストールします。
-
-```bash
+```pwsh
+git clone <repo-url>
+cd post-research-papers-to-slack
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### ローカル環境での動作確認
+### 3. 環境変数
 
-まずは.env.example のファイルをコピーして `.env` ファイルを作成して下さい。ここに SLACK BOT TOKEN、投稿したいチャンネルのチャンネル ID（SLACK_CHANNEL）、OPENAI_API_KEY を入力します。合わせてどのキーワードで論文を検索したいかについても設定できます。
+`.env.example` をコピーして `.env` を作成し、各値を設定します。
 
-次に、Railway CLI を使って、ローカル環境で実際に動かします。以下のコマンドを実行すると確認できます。
+```text
+DISCORD_WEBHOOK_URL=...
+GOOGLE_API_KEY=...
+# 任意: RATE_LIMIT_PER_MINUTE_REQUESTS 等でレート値を調整可能
+```
 
-```bash
+`config.py` で参照するその他の検索条件は必要に応じて編集してください。
+
+## ローカルでの動作確認
+
+```pwsh
 make run
 ```
 
-この状態でも Slack に論文を投稿することはできますが、PC がスリープモードになると投稿が止まってしまいます。常時動かしたい時はデプロイをしましょう。
+- `http://localhost:8000/` にアクセスするとヘルスチェック結果が返ります。
+- ジョブは 3 時間ごとに実行されます。すぐ動作を確認したい場合は、Python シェルで `from main import run_job; run_job()` を実行してください。
 
-### Railway へのデプロイ
+## Render へのデプロイ
 
-デプロイをすることで、PC が起動していない時でも論文投稿がされるようになります。今回は Railway へのデプロイを行います。
+1. Render ダッシュボードで Blueprint Deploy を選択し、このリポジトリを接続します。
+2. `render.yaml` が自動で検出され、Web サービスとしてセットアップされます。
+3. 環境変数に `DISCORD_WEBHOOK_URL` と `GOOGLE_API_KEY` を登録します。
+4. 永続ディスクで SQLite を保持したい場合は Render 側で Persistent Disk を 1GB 程度割り当て、`DATABASE_NAME` にマウントパスを設定してください。
+5. デプロイ後、Render が割り当てた URL の `/` が `{"status": "OK"}` を返せば稼働しています。
 
-Railway のプロジェクトと CLI をリンクしていなければ、下記を実行して下さい。
+### Blueprint の概要
 
-```bash
+- `pip install -r requirements.txt`
+- `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- Python サービス（無料プランでも動作）
 
-railway login
+## Gemini のレートリミットについて
 
-railway link
+Google AI Studio の無料枠は、以下の上限があります。
 
-```
+- 1 分あたり 15 リクエスト
+- 1 分あたり 1,000,000 トークン
+- 1 日あたり 200 リクエスト
 
-問題なければ、以下を実行するとビルド・デプロイが始まります。
+本プロジェクトでは `utils/utilts.py` 内で独自の RateLimiter を実装し、
 
-```bash
+- API 呼び出し前に推定トークン数を算出 → 制限に余裕がない場合は待機
+- レスポンス後もトークン数を加算
+- 日次上限に達した場合はその日中のリクエストをスキップ
 
-make deploy
+という流れで制御しています。スケジュールが 3 時間おきのため、通常利用では制限超過が発生しない想定です。
 
-```
+## トラブルシューティング
 
-それでは論文読書ライフを楽しみましょう！💪
+| 症状 | 対応 |
+| --- | --- |
+| Discord 投稿に失敗する | Webhook URL が有効か確認し、Render 環境変数にも設定されているかチェック。 |
+| Gemini が None を返す | トークン制限超過もしくは API キー権限不足の可能性。ログで警告を確認。 |
+| 論文が取得されない | `config.py` のキーワード／著者条件を見直し、arXiv の検索 API が動作しているか確認。 |
+
+## ライセンス
+
+MIT

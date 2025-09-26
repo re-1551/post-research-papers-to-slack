@@ -1,7 +1,10 @@
-.PHONY: run deploy
+.PHONY: run job check
 
 run:
-	railway run python main.py
+	uvicorn main:app --host 0.0.0.0 --port 8000
 
-deploy:
-	railway up
+job:
+	python -c "from main import run_job; run_job()"
+
+check:
+	python -m compileall .

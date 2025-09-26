@@ -2,9 +2,7 @@ arxiv
 fastapi
 uvicorn
 pytz
-asyncio
-openai
-slack-sdk
-slack-bolt
 apscheduler
 python-dotenv
+google-generativeai
+httpx
