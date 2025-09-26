@@ -61,19 +61,41 @@ make run
 - `http://localhost:8000/` にアクセスするとヘルスチェック結果が返ります。
 - ジョブは 3 時間ごとに実行されます。すぐ動作を確認したい場合は、Python シェルで `from main import run_job; run_job()` を実行してください。
 
-## Render へのデプロイ
+## Render 無料プランでのデプロイ手順（初心者向け）
 
-1. Render ダッシュボードで Blueprint Deploy を選択し、このリポジトリを接続します。
-2. `render.yaml` が自動で検出され、Web サービスとしてセットアップされます。
-3. 環境変数に `DISCORD_WEBHOOK_URL` と `GOOGLE_API_KEY` を登録します。
-4. 永続ディスクで SQLite を保持したい場合は Render 側で Persistent Disk を 1GB 程度割り当て、`DATABASE_NAME` にマウントパスを設定してください。
-5. デプロイ後、Render が割り当てた URL の `/` が `{"status": "OK"}` を返せば稼働しています。
+Render では Blueprint Deploy を使うと GitHub リポジトリから Web サービスを自動で構築できます。ここでは無料プランを想定した最小構成を手取り足取り説明します。
 
-### Blueprint の概要
+### 事前準備
 
-- `pip install -r requirements.txt`
-- `uvicorn main:app --host 0.0.0.0 --port $PORT`
-- Python サービス（無料プランでも動作）
+1. [Render](https://render.com/) にアクセスし、Google などのアカウントでサインアップします（無料プランで OK）。
+2. GitHub アカウントと Render を連携します（初回は GitHub 連携ボタンを押すと認証フローが開きます）。
+3. GitHub 上に本リポジトリが存在していることを確認します（Fork しておくのが簡単です）。
+
+### デプロイ手順
+
+1. Render のダッシュボードで **New +** → **Blueprint** を選択します。
+2. 「Public Git Repository」の欄に自分のリポジトリ URL（例: `https://github.com/<your-username>/post-research-papers-to-slack`）を貼り付け、**Continue** をクリックします。
+3. Render が `render.yaml` を検出するとサービス一覧が表示されます。`arxiv-discord-bot` という Web サービスだけが登録されていれば OK です。
+4. 画面右側のフォームでサービス名やリージョン（デフォルトのままで問題なし）を確認したら、そのまま **Apply** を押します。
+5. 初回デプロイ前に環境変数をセットします。サービス詳細画面の **Environment** → **Add Environment Variable** から以下を登録します。
+	- `DISCORD_WEBHOOK_URL`: Discord で発行した Webhook URL を貼り付け
+	- `GOOGLE_API_KEY`: Google AI Studio で取得した API キー
+	- `DATABASE_NAME`: `/tmp/papers.db`（揮発ストレージを使う設定）
+6. すべて登録できたら **Deploy** ボタンを押してデプロイを開始します。初回は依存パッケージのインストールがあるので数分かかります。
+7. デプロイが成功すると、サービスの **Overview** に Render が発行した URL が表示されます。ブラウザで `https://xxx.onrender.com/` にアクセスし、`{"status": "OK"}` が返ればアプリが稼働しています。
+
+### 無料プランで動かす際の注意点
+
+- `/tmp/papers.db` はインスタンスの再起動・再デプロイで中身が初期化されます。投稿済み判定を継続したい場合は外部データベース（例: Supabase, Neon など）を用いて `DATABASE_NAME` や接続ロジックを変更してください。
+- 無料プランには月 750 時間の制限があります。通常は 1 サービスぶんの連続稼働に十分ですが、他の無料サービスを多数動かしていると足りなくなることがあります。
+- Gemini API の無料枠では 1 日 200 リクエストまでの制限があります。本 BOT は 3 時間ごとの投稿（1 日 8 回）なので余裕がありますが、失敗時のリトライなどで一時的に増える可能性はあるため、Render のログでエラーが出ていないかときどき確認してください。
+
+### Blueprint の挙動
+
+- ビルド時コマンド: `pip install -r requirements.txt`
+- 起動コマンド: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- サービス種別: Python Web Service（無料プラン対応）
+- ローカルディスク: `/tmp/papers.db`（揮発、再起動でリセット）
 
 ## Gemini のレートリミットについて
 
