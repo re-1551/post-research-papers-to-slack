@@ -1,4 +1,4 @@
-# arXiv→Discord リサーチ BOT
+# 論文投稿 Discord BOT
 
 指定したキーワードや著者の arXiv 論文を定期的に取得し、Google AI Studio の **Gemini 2.0 Flash** で日本語要約と読みどころを生成して Discord に投稿する BOT です。Render 上で常時稼働することを想定しています。
 
@@ -121,6 +121,3 @@ Google AI Studio の無料枠は、以下の上限があります。
 | Gemini が None を返す | トークン制限超過もしくは API キー権限不足の可能性。ログで警告を確認。 |
 | 論文が取得されない | `config.py` のキーワード／著者条件を見直し、arXiv の検索 API が動作しているか確認。 |
 
-## ライセンス
-
-MIT
