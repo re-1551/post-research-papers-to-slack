@@ -1,0 +1,32 @@
+{
+  "name": "discord-arxiv-bot",
+  "version": "1.0.0",
+  "description": "A Discord bot that fetches AI-related papers from arXiv and posts them daily.",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "digest": "node dist/jobs/dailyDigest.js",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "axios": "^1.6.2",
+    "@google/generative-ai": "^0.2.1",
+    "node-schedule": "^2.1.1",
+    "dotenv": "^16.3.1",
+    "fast-xml-parser": "^4.3.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2",
+    "@types/node": "^20.10.5",
+    "@types/node-schedule": "^2.1.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}
