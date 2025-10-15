@@ -41,3 +41,4 @@ coverage/
 # その他
 *.backup
 *.tmp
+gas-trigger.js

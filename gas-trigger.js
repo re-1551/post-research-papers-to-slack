@@ -18,7 +18,7 @@
 const RENDER_URL = 'YOUR_RENDER_URL_HERE';
 
 // Trigger Secret（Renderの環境変数と同じ値を設定）
-const TRIGGER_SECRET = 'YOUR_TRIGGER_SECRET_HERE';
+const TRIGGER_SECRET = 'VyMhA3DKw9Wtr8T6C04mzaOevodxILuG';
 
 // ========== メイン関数 ==========
 
