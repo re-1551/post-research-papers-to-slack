@@ -1,7 +1,6 @@
 import { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextChannel } from 'discord.js';
-import { scheduleJob } from 'node-schedule';
 import dotenv from 'dotenv';
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { fetchRecentPapers } from './services/arxivService';
 import { translateTitle } from './services/translationService';
 import { generateSummaryById } from './services/summaryService';
@@ -45,7 +44,7 @@ client.once('ready', () => {
 });
 
 // HTTPエンドポイント: ヘルスチェック
-app.get('/', (req, res) => {
+app.get('/', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     bot: client.user?.tag || 'Not ready',
@@ -55,7 +54,7 @@ app.get('/', (req, res) => {
 });
 
 // HTTPエンドポイント: ダイジェスト実行トリガー（GASから呼び出される）
-app.post('/trigger-digest', async (req, res) => {
+app.post('/trigger-digest', async (req: Request, res: Response) => {
   // セキュリティ: シークレットトークンで認証
   const providedSecret = req.headers['x-trigger-secret'] || req.body.secret;
   

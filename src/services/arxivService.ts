@@ -96,7 +96,7 @@ export async function fetchRecentPapers(maxResults: number = 50): Promise<ArxivP
           return null;
         }
       })
-      .filter((paper): paper is ArxivPaper => {
+      .filter((paper: ArxivPaper | null): paper is ArxivPaper => {
         if (!paper) return false;
         // 24時間以内に投稿されたものだけ
         return paper.published >= past24Hours;
