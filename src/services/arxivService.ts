@@ -24,6 +24,7 @@ export async function fetchRecentPapers(maxResults: number = 50): Promise<ArxivP
     const past24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     
     console.log(`🔍 Searching for papers updated after: ${past24Hours.toISOString()}`);
+    console.log(`📅 Current time: ${now.toISOString()}`);
 
     // カテゴリ検索クエリを構築
     const categoryQuery = AI_CATEGORIES.map(cat => `cat:${cat}`).join(' OR ');
@@ -33,7 +34,7 @@ export async function fetchRecentPapers(maxResults: number = 50): Promise<ArxivP
       search_query: categoryQuery,
       start: '0',
       max_results: maxResults.toString(),
-      sortBy: 'submittedDate',
+      sortBy: 'lastUpdatedDate',  // 更新日でソート
       sortOrder: 'descending'
     });
 
@@ -60,6 +61,7 @@ export async function fetchRecentPapers(maxResults: number = 50): Promise<ArxivP
 
     // 単一エントリーの場合は配列化
     const entries = Array.isArray(feed.entry) ? feed.entry : [feed.entry];
+    console.log(`📥 Retrieved ${entries.length} entries from arXiv API`);
 
     // 論文データを整形し、24時間以内のものだけフィルタ
     const papers: ArxivPaper[] = entries
@@ -100,18 +102,21 @@ export async function fetchRecentPapers(maxResults: number = 50): Promise<ArxivP
       })
       .filter((paper: ArxivPaper | null): paper is ArxivPaper => {
         if (!paper) return false;
-        // 24時間以内に更新されたものを対象とする（publishedではなくupdatedを使用）
+        // 24時間以内に更新されたものを対象とする
         // arXivでは新規投稿も更新扱いになるため、updatedの方が新しい論文を捉えやすい
         const isRecent = paper.updated >= past24Hours || paper.published >= past24Hours;
         
         if (isRecent) {
           console.log(`✓ Recent paper: ${paper.id} - published: ${paper.published.toISOString()}, updated: ${paper.updated.toISOString()}`);
+        } else {
+          console.log(`✗ Old paper: ${paper.id} - published: ${paper.published.toISOString()}, updated: ${paper.updated.toISOString()}`);
         }
         
         return isRecent;
       });
 
     console.log(`Found ${papers.length} papers in the last 24 hours (from ${entries.length} total entries)`);
+    console.log(`Cutoff time: ${past24Hours.toISOString()}`);
     return papers;
 
   } catch (error) {
