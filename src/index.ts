@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextChannel } from 'discord.js';
 import { scheduleJob } from 'node-schedule';
 import dotenv from 'dotenv';
+import express from 'express';
 import { fetchRecentPapers } from './services/arxivService';
 import { translateTitle } from './services/translationService';
 import { generateSummaryById } from './services/summaryService';
@@ -18,6 +19,12 @@ for (const envVar of requiredEnvVars) {
 }
 
 const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID!;
+const TRIGGER_SECRET = process.env.TRIGGER_SECRET || 'default-secret-change-me';
+const PORT = process.env.PORT || 10000;
+
+// Expressアプリケーションの初期化（HTTPサーバー用）
+const app = express();
+app.use(express.json());
 
 // Discordクライアントの初期化
 const client = new Client({
@@ -30,16 +37,51 @@ const client = new Client({
 // ボット起動時の処理
 client.once('ready', () => {
   console.log(`✅ Logged in as ${client.user?.tag}`);
-  console.log(`📅 Scheduled daily digest at 6:00 AM JST (21:00 UTC)`);
+  console.log(`🌐 HTTP server running on port ${PORT}`);
+  console.log(`📡 Waiting for trigger requests from Google Apps Script...`);
 
-  // 毎朝6時（JST）= 21時（UTC）にジョブをスケジュール
-  scheduleJob('0 21 * * *', async () => {
-    console.log('⏰ Running daily digest job...');
-    await runDailyDigest();
+  // 開発用: 起動時にテスト実行（コメントアウト推奨）
+  // runDailyDigest();
+});
+
+// HTTPエンドポイント: ヘルスチェック
+app.get('/', (req, res) => {
+  res.json({
+    status: 'ok',
+    bot: client.user?.tag || 'Not ready',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+// HTTPエンドポイント: ダイジェスト実行トリガー（GASから呼び出される）
+app.post('/trigger-digest', async (req, res) => {
+  // セキュリティ: シークレットトークンで認証
+  const providedSecret = req.headers['x-trigger-secret'] || req.body.secret;
+  
+  if (providedSecret !== TRIGGER_SECRET) {
+    console.warn('⚠️  Unauthorized trigger attempt');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  console.log('📨 Received trigger request from Google Apps Script');
+  
+  // 非同期でダイジェスト実行（即座にレスポンス返す）
+  res.json({ 
+    status: 'triggered',
+    message: 'Daily digest job started',
+    timestamp: new Date().toISOString()
   });
 
-  // 起動時にテスト実行（開発用・コメントアウト可）
-  // runDailyDigest();
+  // バックグラウンドで実行
+  runDailyDigest().catch(err => {
+    console.error('Error in triggered digest:', err);
+  });
+});
+
+// HTTPサーバー起動
+app.listen(PORT, () => {
+  console.log(`🚀 HTTP server listening on port ${PORT}`);
 });
 
 // ボタンインタラクションの処理
