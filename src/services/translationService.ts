@@ -8,7 +8,7 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || '');
  */
 export async function translateToJapanese(text: string): Promise<string> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
     const prompt = `以下の英語テキストを日本語に翻訳してください。翻訳結果のみを返してください。
 
@@ -35,7 +35,7 @@ ${text}`;
  */
 export async function translateTitle(title: string): Promise<string> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
     const prompt = `以下の論文タイトルを学術的で自然な日本語に翻訳してください。翻訳結果のみを返してください。
 

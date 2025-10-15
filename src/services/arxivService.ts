@@ -22,6 +22,8 @@ export async function fetchRecentPapers(maxResults: number = 50): Promise<ArxivP
     // 24時間前の日時を計算
     const now = new Date();
     const past24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    
+    console.log(`🔍 Searching for papers updated after: ${past24Hours.toISOString()}`);
 
     // カテゴリ検索クエリを構築
     const categoryQuery = AI_CATEGORIES.map(cat => `cat:${cat}`).join(' OR ');
@@ -98,11 +100,18 @@ export async function fetchRecentPapers(maxResults: number = 50): Promise<ArxivP
       })
       .filter((paper: ArxivPaper | null): paper is ArxivPaper => {
         if (!paper) return false;
-        // 24時間以内に投稿されたものだけ
-        return paper.published >= past24Hours;
+        // 24時間以内に更新されたものを対象とする（publishedではなくupdatedを使用）
+        // arXivでは新規投稿も更新扱いになるため、updatedの方が新しい論文を捉えやすい
+        const isRecent = paper.updated >= past24Hours || paper.published >= past24Hours;
+        
+        if (isRecent) {
+          console.log(`✓ Recent paper: ${paper.id} - published: ${paper.published.toISOString()}, updated: ${paper.updated.toISOString()}`);
+        }
+        
+        return isRecent;
       });
 
-    console.log(`Found ${papers.length} papers published in the last 24 hours`);
+    console.log(`Found ${papers.length} papers in the last 24 hours (from ${entries.length} total entries)`);
     return papers;
 
   } catch (error) {

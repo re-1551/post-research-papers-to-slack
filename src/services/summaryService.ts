@@ -12,7 +12,7 @@ export async function generateSummary(
   paperAbstract: string
 ): Promise<string> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
 
     const prompt = `以下の論文の要旨から、研究内容を分かりやすく日本語で要約してください。
 要約は以下の点を含めてください：
