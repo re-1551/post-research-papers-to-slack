@@ -25,6 +25,9 @@ export async function fetchRecentPapers(maxResults: number = 50): Promise<ArxivP
     
     console.log(`🔍 Searching for papers updated after: ${past24Hours.toISOString()}`);
     console.log(`📅 Current time: ${now.toISOString()}`);
+    console.log(`🕐 Local time: ${now.toLocaleString()}`);
+    console.log(`⏰ Unix timestamp (now): ${now.getTime()}`);
+    console.log(`⏰ Unix timestamp (24h ago): ${past24Hours.getTime()}`);
 
     // カテゴリ検索クエリを構築
     const categoryQuery = AI_CATEGORIES.map(cat => `cat:${cat}`).join(' OR ');

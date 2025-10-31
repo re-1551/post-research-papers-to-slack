@@ -3,10 +3,11 @@
  * このファイルはRender Cron Jobから独立して実行されます
  */
 
-import { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextChannel } from 'discord.js';
+import { Client, GatewayIntentBits, EmbedBuilder, TextChannel } from 'discord.js';
 import dotenv from 'dotenv';
 import { fetchRecentPapers } from '../services/arxivService';
 import { translateTitle } from '../services/translationService';
+import { generateSummary } from '../services/summaryService';
 
 // 環境変数を読み込み
 dotenv.config();
@@ -35,6 +36,9 @@ function calculateRateLimitDelay(requestCount: number): number {
 
 async function runDailyDigest() {
   console.log('🚀 Starting daily digest job...');
+  console.log(`📅 Current date/time: ${new Date().toISOString()}`);
+  console.log(`🌍 Timezone offset: ${new Date().getTimezoneOffset()} minutes`);
+  console.log(`⚙️  Environment: ${process.env.NODE_ENV || 'development'}`);
 
   // Discordクライアントを作成（ジョブ専用）
   const client = new Client({
@@ -65,6 +69,13 @@ async function runDailyDigest() {
 
     console.log(`✅ Found ${papers.length} papers. Posting to Discord...`);
 
+    // ランダムに5つ選択（論文数が5以下の場合は全て選択）
+    const selectedPapers = papers.length <= 5 
+      ? papers 
+      : papers.sort(() => Math.random() - 0.5).slice(0, 5);
+    
+    console.log(`📊 Selected ${selectedPapers.length} papers randomly from ${papers.length} total papers`);
+
     const channel = await client.channels.fetch(DISCORD_CHANNEL_ID) as TextChannel;
     if (!channel || !channel.isTextBased()) {
       console.error('❌ Invalid channel or channel not found');
@@ -74,18 +85,18 @@ async function runDailyDigest() {
     }
 
     // ヘッダーメッセージ
-    await channel.send(`📚 **本日のAI論文ダイジェスト** (${papers.length}件)\n${new Date().toLocaleDateString('ja-JP')}`);
+    await channel.send(`📚 **本日のAI論文ダイジェスト** (${papers.length}件中 ${selectedPapers.length}件をランダムに選択)\n${new Date().toLocaleDateString('ja-JP')}`);
 
     // レート制限管理用の変数
     let requestCount = 0;
     let windowStartTime = Date.now();
 
     // 各論文を投稿
-    for (let i = 0; i < papers.length; i++) {
-      const paper = papers[i];
+    for (let i = 0; i < selectedPapers.length; i++) {
+      const paper = selectedPapers[i];
 
       try {
-        console.log(`📤 Posting paper ${i + 1}/${papers.length}: ${paper.id}`);
+        console.log(`📤 Posting paper ${i + 1}/${selectedPapers.length}: ${paper.id}`);
 
         // レート制限チェック: 1分ごとにカウンターをリセット
         const currentTime = Date.now();
@@ -102,8 +113,18 @@ async function runDailyDigest() {
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        // タイトルを翻訳（Gemini API呼び出し）
+        // タイトルを翻訳（Gemini API呼び出し1回目）
         const titleJa = await translateTitle(paper.title);
+        requestCount++;
+
+        // レート制限による待機
+        const delay = calculateRateLimitDelay(requestCount);
+        console.log(`⏳ Rate limit delay: ${delay}ms (request ${requestCount + 1}/${GEMINI_RPM_LIMIT} in this minute)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        // 概要を生成（Gemini API呼び出し2回目）
+        console.log(`🤖 Generating summary for paper ${paper.id}...`);
+        const summary = await generateSummary(paper.title, paper.abstract);
         requestCount++;
 
         // Embedを作成
@@ -113,30 +134,21 @@ async function runDailyDigest() {
           .setColor(0x0099FF)
           .addFields(
             { name: '📝 原題', value: paper.title, inline: false },
-            { name: '👥 著者', value: paper.authors.slice(0, 3).join(', ') + (paper.authors.length > 3 ? ' 他' : ''), inline: false },
+            { name: '📄 日本語概要', value: summary.length > 1024 ? summary.substring(0, 1021) + '...' : summary, inline: false },
+            { name: '� 著者', value: paper.authors.slice(0, 3).join(', ') + (paper.authors.length > 3 ? ' 他' : ''), inline: false },
             { name: '📅 投稿日', value: paper.published.toLocaleDateString('ja-JP'), inline: true },
             { name: '🏷️ カテゴリ', value: paper.categories.slice(0, 3).join(', '), inline: true }
           )
           .setFooter({ text: `arXiv:${paper.id}` })
           .setTimestamp();
 
-        // ボタンを作成
-        const row = new ActionRowBuilder<ButtonBuilder>()
-          .addComponents(
-            new ButtonBuilder()
-              .setCustomId(`summary_${paper.id}`)
-              .setLabel('📄 日本語概要を表示')
-              .setStyle(ButtonStyle.Primary)
-          );
-
-        // メッセージを送信
+        // メッセージを送信（ボタンなし）
         await channel.send({
           embeds: [embed],
-          components: [row],
         });
 
         // Discord API のレート制限対策（軽微な待機）
-        if (i < papers.length - 1) {
+        if (i < selectedPapers.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
 
